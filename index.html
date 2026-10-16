@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Forever Raid Buffs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Alegreya+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: class roster on the left, raid summary + 5-man group frames on the right; stacks on phones. */
+:root {
+  --bg: #e9ecf0;
+  --panel: #ffffff;
+  --slot: #f3f5f8;
+  --ink: #1a1f28;
+  --muted: #5a6474;
+  --line: #d3d9e1;
+  --accent: #2b5a8e;
+  --accent-soft: #dfe9f5;
+  --ok: #276b43;
+  --ok-bg: #e1f1e7;
+  --warn: #9a5200;
+  --warn-bg: #fdefd9;
+  --font-display: "Alegreya SC", "Palatino Linotype", Georgia, serif;
+  --font-body: "Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111419; --panel: #1a1e26; --slot: #151920; --ink: #e6e9ef; --muted: #98a2b3;
+    --line: #2b313c; --accent: #8db6e6; --accent-soft: #1f2d40; --ok: #82d3a0; --ok-bg: #1a3124;
+    --warn: #f1b45c; --warn-bg: #3a2912; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111419; --panel: #1a1e26; --slot: #151920; --ink: #e6e9ef; --muted: #98a2b3;
+  --line: #2b313c; --accent: #8db6e6; --accent-soft: #1f2d40; --ok: #82d3a0; --ok-bg: #1a3124;
+  --warn: #f1b45c; --warn-bg: #3a2912; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.4;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+}
+.wrap { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; margin: 0; text-wrap: balance; }
+h1 { font-size: 1.9rem; letter-spacing: .01em; }
+h2 { font-size: 1.15rem; }
+.eyebrow { font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); font-weight: 700; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 14px; }
+.top p { margin: 4px 0 0; color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.ctl-label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .9rem; }
+select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 12px; font-weight: 500; }
+.btn:hover { border-color: var(--accent); }
+
+/* Main layout */
+.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 820px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+/* Palette */
+#palette {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px;
+  display: flex; flex-direction: column; gap: 12px; position: sticky; top: calc(12px + env(safe-area-inset-top, 0px));
+  max-height: calc(100vh - 24px); overflow: auto;
+}
+@media (max-width: 820px) { #palette { position: static; max-height: none; } }
+#palette.drop-remove { outline: 2px dashed var(--warn); outline-offset: -4px; }
+.pal-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pal-hint { font-size: .85rem; color: var(--muted); margin: 0; }
+.pal-classes { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (max-width: 820px) { .pal-classes { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); } }
+.pal-class { display: flex; flex-direction: column; gap: 4px; }
+.pal-class h3 { font-size: .95rem; display: flex; align-items: center; gap: 6px; }
+.swatch { width: 10px; height: 10px; border-radius: 2px; background: var(--c); box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+.spec {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%;
+  border: 1px solid var(--line); border-left: 4px solid var(--c); background: var(--slot);
+  border-radius: 6px; padding: 5px 8px; text-align: left; touch-action: none; user-select: none;
+}
+.spec:hover { border-color: var(--c); }
+.role { font-family: var(--font-mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+
+/* Raid summary */
+.summary { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.sum-row { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: baseline; }
+.stat { display: flex; align-items: baseline; gap: 6px; }
+.stat b { font-family: var(--font-mono); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: .88rem; }
+.stat.bad b { color: var(--warn); }
+.stat.good b { color: var(--ok); }
+.raidwide { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.raidwide > div { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+/* Resistances */
+.res-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 14px; }
+.res-head p { margin: 0; font-size: .84rem; color: var(--muted); max-width: 60ch; }
+.res-scroll { overflow-x: auto; }
+.res { border-collapse: collapse; width: 100%; font-size: .86rem; }
+.res th, .res td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.res thead th { font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.res tbody th { font-family: var(--font-display); font-size: .95rem; }
+.res .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--s); margin-right: 6px; }
+.res .src { display: inline-block; padding: 1px 6px; border-radius: 4px; background: var(--ok-bg); color: var(--ok); margin-right: 4px; cursor: help; }
+.res .src.raidwide { background: var(--accent-soft); color: var(--accent); }
+.res .nores { color: var(--muted); }
+
+/* Groups */
+.groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.group { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.group.drop-hover { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.g-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.g-type { font-size: .78rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.g-type.empty { background: var(--slot); color: var(--muted); }
+.g-score { font-family: var(--font-mono); font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.slots { display: flex; flex-direction: column; gap: 4px; }
+.slot { min-height: 34px; border-radius: 6px; border: 1px dashed var(--line); background: var(--slot); display: flex; align-items: stretch; }
+.slot.empty { align-items: center; padding: 0 10px; color: var(--muted); font-size: .85rem; }
+.slot.drop-hover { border-color: var(--accent); border-style: solid; background: var(--accent-soft); }
+.member {
+  flex: 1; display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 10px; border-radius: 6px;
+  background: var(--c); color: var(--t); touch-action: none; user-select: none; cursor: grab; min-width: 0;
+}
+.member .m-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.member .m-role { font-family: var(--font-mono); font-size: .66rem; text-transform: uppercase; letter-spacing: .06em; opacity: .75; margin-left: auto; }
+.rm { border: 0; background: transparent; color: inherit; width: 26px; height: 26px; border-radius: 4px; font-size: 1.05rem; line-height: 1; opacity: .7; }
+.rm:hover { opacity: 1; background: rgba(0,0,0,.12); }
+.g-mode { font-size: .82rem; color: var(--muted); margin: 0; }
+
+/* Buff chips */
+.buffs { display: flex; flex-direction: column; gap: 6px; }
+.blabel { font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { display: inline-flex; align-items: baseline; gap: 5px; font-size: .84rem; padding: 2px 8px; border-radius: 5px; border: 1px solid transparent; cursor: help; }
+.chip small { font-size: .74rem; opacity: .8; }
+.chip .tag { font-style: normal; font-family: var(--font-mono); font-size: .62rem; text-transform: uppercase; letter-spacing: .05em; opacity: .75; align-self: center; }
+.chip.has { background: var(--ok-bg); color: var(--ok); }
+.chip.has::before { content: "✓"; font-weight: 700; }
+.chip.miss { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); border-style: dashed; }
+.chip.miss::before { content: "+"; font-weight: 700; }
+.chip.unused { background: var(--slot); color: var(--muted); border-color: var(--line); }
+.none { font-size: .84rem; color: var(--muted); }
+.notes { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.notes li { font-size: .82rem; color: var(--warn); padding-left: 14px; position: relative; }
+.notes li::before { content: "!"; position: absolute; left: 2px; font-weight: 700; }
+
+/* Drag ghost */
+.ghost { position: fixed; z-index: 50; pointer-events: none; transform: translate(-50%, -50%) rotate(-2deg); box-shadow: 0 8px 20px rgba(0,0,0,.3); opacity: .95; width: 220px; }
+body.dragging, body.dragging * { cursor: grabbing !important; }
+
+#status { min-height: 1.2em; font-size: .88rem; color: var(--muted); }
+footer { color: var(--muted); font-size: .82rem; max-width: 75ch; }
+@media (prefers-reduced-motion: no-preference) { .slot, .group, .spec { transition: border-color .12s, background-color .12s; } }
+</style>
+
+<style>:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); } body { margin: 0; } [hidden] { display: none !important; }</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">World of Warcraft: Forever</div>
+      <h1>Forever Raid Buffs</h1>
+      <p>Drag classes into groups. Each group shows the buffs reaching it and the ones its members are missing.</p>
+    </div>
+    <div class="controls">
+      <label class="ctl-label" for="groupCount">Raid size
+        <select id="groupCount"></select>
+      </label>
+      <button type="button" class="btn" id="example">Load example</button>
+      <button type="button" class="btn" id="clear">Clear raid</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside id="palette" aria-label="Classes"></aside>
+    <main style="display:flex;flex-direction:column;gap:14px;min-width:0">
+      <section class="summary" id="summary" aria-label="Raid summary"></section>
+      <section class="summary" id="resist" aria-label="Resistances"></section>
+      <div id="status" aria-live="polite"></div>
+      <section class="groups" id="groups" aria-label="Groups"></section>
+    </main>
+  </div>
+
+  <footer>
+    Buff reach follows the Forever beta notes of October 15, 2026. Battle Shout, Trueshot Aura, Leader of the Pack, Moonkin Aura and the Strength of Earth, Grace of Air, Windfury and Flametongue totems are now raid-wide. Windfury and Flametongue don't stack, and Salvation no longer takes a blessing slot. Each player holds one blessing per paladin, so with two paladins every role gets its top two blessings. Paladin auras, Mana Spring, Mana Tide and Blood Pact still reach only the caster's party, marked PARTY on each chip. A pure melee group only lists melee buffs and a caster group only lists caster buffs. Hover a chip to see what it does.
+  </footer>
+</div>
+
+<script>
+(() => {
+  const CLASSES = {
+    warrior: { name: "Warrior", c: "#C69B6D", t: "#1b140c" },
+    rogue:   { name: "Rogue",   c: "#FFF468", t: "#1d1b05" },
+    hunter:  { name: "Hunter",  c: "#AAD372", t: "#132008" },
+    mage:    { name: "Mage",    c: "#3FC7EB", t: "#06202a" },
+    warlock: { name: "Warlock", c: "#8788EE", t: "#0f0f2b" },
+    priest:  { name: "Priest",  c: "#F4F4F4", t: "#1a1a1a" },
+    druid:   { name: "Druid",   c: "#FF7C0A", t: "#2a1200" },
+    paladin: { name: "Paladin", c: "#F48CBA", t: "#2b0c1a" },
+    shaman:  { name: "Shaman",  c: "#0070DD", t: "#ffffff" },
+  };
+  const ROLE_LABEL = { tank: "Tank", healer: "Healer", melee: "Melee", ranged: "Ranged", caster: "Caster" };
+
+  const SPECS = [
+    { id: "war-dps",    cls: "warrior", name: "Arms / Fury",   role: "melee",  gives: ["battleShout", "sunder", "demoShout", "thunderClap"] },
+    { id: "war-prot",   cls: "warrior", name: "Protection",    role: "tank",   gives: ["battleShout", "sunder", "demoShout", "thunderClap"] },
+    { id: "rogue",      cls: "rogue",   name: "Any spec",      role: "melee",  gives: [] },
+    { id: "hunter-mm",  cls: "hunter",  name: "Marksmanship",  role: "ranged", gives: ["trueshot", "hunterMark"] },
+    { id: "hunter",     cls: "hunter",  name: "BM / Survival", role: "ranged", gives: ["hunterMark"] },
+    { id: "mage-fire",  cls: "mage",    name: "Fire",          role: "caster", gives: ["arcaneInt", "impScorch"] },
+    { id: "mage-frost", cls: "mage",    name: "Frost / Arcane",role: "caster", gives: ["arcaneInt", "wintersChill"] },
+    { id: "lock",       cls: "warlock", name: "Any spec",      role: "caster", gives: ["bloodPact", "curseRecklessness", "curseElements", "curseShadow"] },
+    { id: "priest-holy",  cls: "priest", name: "Holy",         role: "healer", gives: ["fortitude"] },
+    { id: "priest-disc",  cls: "priest", name: "Discipline",   role: "healer", gives: ["fortitude", "divineSpirit"] },
+    { id: "priest-shadow",cls: "priest", name: "Shadow",       role: "caster", gives: ["fortitude", "shadowWeaving"] },
+    { id: "druid-balance",cls: "druid",  name: "Balance",      role: "caster", gives: ["motw", "moonkin", "faerieFire", "insectSwarm"] },
+    { id: "druid-cat",    cls: "druid",  name: "Feral (Cat)",  role: "melee",  gives: ["motw", "lotp", "faerieFire"] },
+    { id: "druid-bear",   cls: "druid",  name: "Feral (Bear)", role: "tank",   gives: ["motw", "lotp", "faerieFire", "demoRoar"] },
+    { id: "druid-resto",  cls: "druid",  name: "Restoration",  role: "healer", gives: ["motw"] },
+    { id: "pal-holy", cls: "paladin", name: "Holy",        role: "healer", gives: ["devotion", "concentration", "kings", "might", "wisdom", "salvation", "light"] },
+    { id: "pal-prot", cls: "paladin", name: "Protection",  role: "tank",   gives: ["devotion", "concentration", "kings", "might", "wisdom", "salvation", "light"] },
+    { id: "pal-ret",  cls: "paladin", name: "Retribution", role: "melee",  gives: ["devotion", "concentration", "kings", "might", "wisdom", "salvation", "light"] },
+    { id: "sham-ele",   cls: "shaman", name: "Elemental",   role: "caster", gives: ["strengthOfEarth", "graceOfAir", "windfury", "flametongue", "manaSpring"] },
+    { id: "sham-enh",   cls: "shaman", name: "Enhancement", role: "melee",  gives: ["strengthOfEarth", "graceOfAir", "windfury", "flametongue", "manaSpring"] },
+    { id: "sham-resto", cls: "shaman", name: "Restoration", role: "healer", gives: ["strengthOfEarth", "graceOfAir", "windfury", "flametongue", "manaSpring", "manaTide"] },
+  ];
+  const SPEC = Object.fromEntries(SPECS.map(s => [s.id, s]));
+
+  const ALL = ["tank", "melee", "ranged", "caster", "healer"];
+  const PHYS = ["tank", "melee", "ranged"];
+  const MELEE = ["tank", "melee"];
+  const MANA = ["caster", "healer"];
+
+  // scope: party = caster's group only, raid = raid-wide buff, debuff = on the boss.
+  // Raid-wide auras, shouts and totems follow the Forever beta notes of October 15, 2026.
+  // slot: buffs sharing a slot need one provider each (one aura per paladin, one totem per element per shaman, one curse per warlock).
+  // alt: buffs in the same alt set don't stack, so having any one of them covers the set.
+  const BUFFS = [
+    { id: "devotion",        name: "Devotion Aura",       scope: "party", for: ["tank"], src: "Paladin", slot: "aura", fx: "Armor for the tank's party" },
+    { id: "manaSpring",      name: "Mana Spring",         scope: "party", for: MANA,  src: "Shaman", slot: "water", fx: "Mana regeneration totem" },
+    { id: "manaTide",        name: "Mana Tide",           scope: "party", for: MANA,  src: "Resto Shaman",  fx: "Burst mana restore (cooldown)" },
+    { id: "concentration",   name: "Concentration Aura",  scope: "party", for: ["healer"], src: "Paladin", slot: "aura", fx: "Pushback protection while casting heals" },
+    { id: "bloodPact",       name: "Blood Pact",          scope: "party", for: ALL,   src: "Warlock (Imp)", fx: "Stamina for the party" },
+
+    { id: "battleShout",     name: "Battle Shout",        scope: "raid", for: MELEE, src: "Warrior",       fx: "Attack power for melee" },
+    { id: "trueshot",        name: "Trueshot Aura",       scope: "raid", for: PHYS,  src: "Hunter (MM)",   fx: "Attack power for melee and ranged" },
+    { id: "lotp",            name: "Leader of the Pack",  scope: "raid", for: PHYS,  src: "Feral Druid",   fx: "Melee and ranged crit" },
+    { id: "moonkin",         name: "Moonkin Aura",        scope: "raid", for: MANA,  src: "Balance Druid", fx: "Spell crit" },
+    { id: "strengthOfEarth", name: "Strength of Earth",   scope: "raid", for: MELEE, src: "Shaman", slot: "earth", fx: "Strength totem" },
+    { id: "graceOfAir",      name: "Grace of Air",        scope: "raid", for: PHYS,  src: "Shaman", slot: "air",   fx: "Agility totem. Stacks with Windfury and Flametongue" },
+    { id: "windfury",        name: "Windfury Totem",      scope: "raid", for: MELEE, src: "Shaman", slot: "air",  alt: "weapon", fx: "Extra main-hand attacks. Doesn't stack with Flametongue" },
+    { id: "flametongue",     name: "Flametongue Totem",   scope: "raid", for: MELEE, src: "Shaman", slot: "fire", alt: "weapon", fx: "Fire damage on weapon hits. Doesn't stack with Windfury" },
+    { id: "fortitude",    name: "Fortitude",           scope: "raid", for: ALL,  src: "Priest",         fx: "Stamina" },
+    { id: "motw",         name: "Mark of the Wild",    scope: "raid", for: ALL,  src: "Druid",          fx: "All stats, armor, resistances" },
+    { id: "kings",        name: "Blessing of Kings",   scope: "raid", for: ALL,  src: "Paladin", fx: "+10% all stats" },
+    { id: "might",        name: "Blessing of Might",   scope: "raid", for: PHYS, src: "Paladin", fx: "Attack power" },
+    { id: "salvation",    name: "Salvation",         scope: "raid", for: ["melee", "ranged", "caster", "healer"], src: "Paladin", fx: "Less threat (not for tanks). No longer uses a blessing slot" },
+    { id: "wisdom",       name: "Blessing of Wisdom",  scope: "raid", for: MANA, src: "Paladin", fx: "Mana regeneration" },
+    { id: "light",        name: "Blessing of Light",   scope: "raid", for: ["tank"], src: "Paladin", fx: "More healing received" },
+    { id: "arcaneInt",    name: "Arcane Intellect",    scope: "raid", for: MANA, src: "Mage",           fx: "Intellect" },
+    { id: "divineSpirit", name: "Divine Spirit",       scope: "raid", for: MANA, src: "Disc Priest",    fx: "Spirit" },
+
+    { id: "sunder",            name: "Sunder Armor",         scope: "debuff", for: PHYS,  src: "Warrior",       fx: "Armor reduction on the boss" },
+    { id: "faerieFire",        name: "Faerie Fire",          scope: "debuff", for: PHYS,  src: "Druid",         fx: "Armor reduction on the boss" },
+    { id: "curseRecklessness", name: "Curse of Recklessness",scope: "debuff", for: PHYS,  src: "Warlock", slot: "curse", fx: "Armor reduction on the boss" },
+    { id: "demoShout",         name: "Demoralizing Shout",   scope: "debuff", for: ["tank"], src: "Warrior",     alt: "demo", fx: "Lowers the boss's attack power. Doesn't stack with Demoralizing Roar" },
+    { id: "demoRoar",          name: "Demoralizing Roar",    scope: "debuff", for: ["tank"], src: "Bear Druid",  alt: "demo", fx: "Lowers the boss's attack power. Doesn't stack with Demoralizing Shout" },
+    { id: "thunderClap",       name: "Thunder Clap",         scope: "debuff", for: ["tank"], src: "Warrior",     fx: "Slows the boss's attack speed" },
+    { id: "insectSwarm",       name: "Insect Swarm",         scope: "debuff", for: ["tank"], src: "Balance Druid", fx: "Boss has 2% less chance to hit. Only one counts" },
+    { id: "hunterMark",        name: "Hunter's Mark",        scope: "debuff", for: ["ranged"], src: "Hunter",   fx: "Ranged attack power against the target" },
+    { id: "curseElements",     name: "Curse of the Elements",scope: "debuff", for: ["caster"], src: "Warlock", slot: "curse", fx: "Boss takes more fire and frost damage" },
+    { id: "curseShadow",       name: "Curse of Shadow",      scope: "debuff", for: ["caster"], src: "Warlock", slot: "curse", fx: "Boss takes more shadow and arcane damage" },
+    { id: "impScorch",         name: "Improved Scorch",      scope: "debuff", for: ["caster"], src: "Fire Mage",     fx: "Boss takes more fire damage" },
+    { id: "wintersChill",      name: "Winter's Chill",       scope: "debuff", for: ["caster"], src: "Frost Mage",    fx: "Frost spell crit on the boss" },
+    { id: "shadowWeaving",     name: "Shadow Weaving",       scope: "debuff", for: ["caster"], src: "Shadow Priest", fx: "Boss takes more shadow damage" },
+  ];
+  const SLOT_TEXT = {
+    aura: (n, list) => `${n} paladin${n > 1 ? "s" : ""} but ${list.length} auras wanted. Each paladin runs one aura: pick from ${list.join(", ")}.`,
+    air: (n, list) => `${n} shaman${n > 1 ? "s" : ""} can drop ${n} air totem${n > 1 ? "s" : ""}: pick from ${list.join(" or ")}.`,
+    earth: (n, list) => `Only ${n} earth totem available: ${list.join(" or ")}.`,
+    water: (n, list) => `Only ${n} water totem available: ${list.join(" or ")}.`,
+    fire: (n, list) => `Only ${n} fire totem available: ${list.join(" or ")}.`,
+    curse: (n, list) => `${n} warlock${n > 1 ? "s" : ""} for ${list.length} curses. Each warlock keeps up one curse: ${list.join(", ")}.`,
+  };
+
+  const GROUP_SIZE = 5, STORE = "forever-raid-buffs-v1";
+  const GROUP_OPTIONS = [2, 3, 4, 5, 8]; // 10, 15, 20, 25 and 40-man
+  const state = load() || exampleState(4);
+
+  function emptyGroups(n) { return Array.from({ length: n }, () => Array(GROUP_SIZE).fill(null)); }
+  // Example raids for each size. 10- and 15-man get their own comps so they still have tanks and healers.
+  const EXAMPLE_SMALL = {
+    2: [
+      ["war-prot", "war-dps", "rogue", "druid-cat", "pal-holy"],
+      ["mage-fire", "lock", "druid-balance", "priest-holy", "sham-resto"],
+    ],
+    3: [
+      ["war-prot", "war-dps", "war-dps", "rogue", "druid-cat"],
+      ["mage-fire", "mage-frost", "lock", "druid-balance", "priest-shadow"],
+      ["priest-holy", "pal-holy", "sham-resto", "druid-resto", "hunter-mm"],
+    ],
+  };
+  const EXAMPLE_GROUPS = [
+    ["war-dps", "war-dps", "rogue", "druid-cat", "sham-enh"],
+    ["mage-fire", "mage-frost", "lock", "druid-balance", "priest-shadow"],
+    ["war-prot", "pal-ret", "pal-holy", "hunter-mm", "hunter"],
+    ["priest-holy", "priest-disc", "druid-resto", "sham-resto", "lock"],
+    ["war-dps", "war-dps", "rogue", "rogue", "sham-enh"],
+    ["priest-holy", "sham-resto", "druid-resto", "mage-frost", "sham-ele"],
+    ["druid-bear", "pal-prot", "hunter", "rogue", "pal-holy"],
+    ["mage-frost", "mage-fire", "lock", "lock", "priest-holy"],
+  ];
+  function exampleState(n) {
+    return { groups: (EXAMPLE_SMALL[n] || EXAMPLE_GROUPS.slice(0, n)).map(g => [...g]) };
+  }
+  function load() {
+    try {
+      const s = JSON.parse(localStorage.getItem(STORE));
+      if (s && Array.isArray(s.groups) && s.groups.length) {
+        s.groups = s.groups.map(g => Array.from({ length: GROUP_SIZE }, (_, i) => (g[i] && SPEC[g[i]]) ? g[i] : null));
+        const size = GROUP_OPTIONS.find(n => n >= s.groups.length) || GROUP_OPTIONS.at(-1);
+        s.groups = s.groups.slice(0, size);
+        while (s.groups.length < size) s.groups.push(Array(GROUP_SIZE).fill(null));
+        return s;
+      }
+    } catch (e) {}
+    return null;
+  }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
+
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function groupType(members) {
+    if (!members.length) return { key: "empty", label: "Empty" };
+    const roles = new Set(members.map(m => m.role));
+    const only = set => [...roles].every(r => set.includes(r));
+    if (only(MELEE)) return { key: "melee", label: "Melee group", mode: "Showing melee buffs only" };
+    if (only(MANA)) return { key: "caster", label: [...roles].every(r => r === "healer") ? "Healer group" : "Caster group", mode: "Showing caster buffs only" };
+    if (only(PHYS)) return { key: "phys", label: "Physical group", mode: "Showing melee and ranged buffs" };
+    return { key: "mixed", label: "Mixed group", mode: "Showing buffs for every role here" };
+  }
+
+  // Works out which buffs in the given scopes the members have, miss, or have without anyone using them.
+  // `members` decide which buffs matter; `givers` (default: the same players) decide which buffs exist.
+  function analyze(members, scopes, givers = members) {
+    const roles = new Set(members.map(m => m.role));
+    const providers = {};
+    givers.forEach((m, i) => m.gives.forEach(b => (providers[b] ||= new Set()).add(i)));
+    const has = [], unused = [];
+    let miss = [];
+    for (const b of BUFFS) {
+      if (!scopes.includes(b.scope)) continue;
+      const relevant = b.for.some(r => roles.has(r));
+      const got = !!providers[b.id];
+      if (got && relevant) has.push(b);
+      else if (got && givers === members) unused.push(b);
+      else if (relevant) miss.push(b);
+    }
+    // Non-stacking alternatives: covered if any one is up, otherwise list only the first as missing.
+    const altSeen = new Set(has.filter(b => b.alt).map(b => b.alt));
+    miss = miss.filter(b => !b.alt || (!altSeen.has(b.alt) && (altSeen.add(b.alt), true)));
+    const notes = [];
+    if (givers !== members) return { has, miss, unused, notes };
+    const bySlot = {};
+    has.forEach(b => { if (b.slot) (bySlot[b.slot] ||= []).push(b); });
+    for (const [slot, list] of Object.entries(bySlot)) {
+      const cap = new Set(list.flatMap(b => [...providers[b.id]])).size;
+      if (list.length > cap) notes.push(SLOT_TEXT[slot](cap, list.map(b => b.name)));
+    }
+    return { has, miss, unused, notes };
+  }
+
+  function chip(b, kind) {
+    const who = b.for.length === ALL.length ? "everyone" : b.for.map(r => ROLE_LABEL[r].toLowerCase()).join(", ");
+    const reach = b.scope === "party" ? "Party only" : b.scope === "raid" ? "Raid-wide" : "Boss debuff";
+    const tip = `${b.name}: ${b.fx}. ${reach}. From ${b.src}. Helps ${who}.` + (kind === "unused" ? " No one here uses it." : "");
+    const name = b.alt && kind === "miss" ? BUFFS.filter(x => x.alt === b.alt).map(x => x.name).join(" or ") : b.name;
+    const src = b.alt && kind === "miss" ? [...new Set(BUFFS.filter(x => x.alt === b.alt).map(x => x.src))].join(" or ") : b.src;
+    const small = kind === "miss" ? ` <small>${esc(src)}</small>` : "";
+    const tag = b.scope === "party" && kind !== "unused" ? `<i class="tag">party</i>` : "";
+    return `<span class="chip ${kind}" title="${esc(tip)}">${esc(name)}${small}${tag}</span>`;
+  }
+  function buffBlock(label, list, kind, emptyText) {
+    return `<div class="buffs"><div class="blabel">${label}</div>` +
+      (list.length ? `<div class="chips">${list.map(b => chip(b, kind)).join("")}</div>` : `<div class="none">${emptyText}</div>`) +
+      `</div>`;
+  }
+  const notesHtml = notes => notes.length ? `<ul class="notes">${notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul>` : "";
+
+  function renderPalette() {
+    const byClass = Object.keys(CLASSES).map(cls => {
+      const c = CLASSES[cls];
+      const specs = SPECS.filter(s => s.cls === cls).map(s =>
+        `<button type="button" class="spec" id="spec-${s.id}" data-drag data-spec="${s.id}" style="--c:${c.c}">
+           <span>${esc(s.name)}</span><span class="role">${ROLE_LABEL[s.role]}</span></button>`).join("");
+      return `<div class="pal-class"><h3><span class="swatch" style="--c:${c.c}"></span>${c.name}</h3>${specs}</div>`;
+    }).join("");
+    document.getElementById("palette").innerHTML =
+      `<div class="pal-head"><h2>Classes</h2></div>
+       <p class="pal-hint">Drag a spec onto a group, or tap it to fill the next open slot. Drag a player back here to remove them.</p>
+       <div class="pal-classes">${byClass}</div>`;
+  }
+
+  // Each player holds one blessing per paladin, so with N paladins every role gets the first N of its list.
+  const BLESS_PRIORITY = {
+    tank:   ["kings", "might", "light"],
+    melee:  ["kings", "might"],
+    ranged: ["kings", "might"],
+    caster: ["kings", "wisdom"],
+    healer: ["kings", "wisdom"],
+  };
+  const BLESSINGS = ["kings", "might", "wisdom", "light"];
+  const paladinCount = raidMembers => raidMembers.filter(m => m.cls === "paladin").length;
+  function applyBlessings(members, res, paladins) {
+    const isB = b => BLESSINGS.includes(b.id);
+    res.has = res.has.filter(b => !isB(b));
+    res.miss = res.miss.filter(b => !isB(b));
+    const got = new Set(), need = {};
+    members.forEach(m => BLESS_PRIORITY[m.role].forEach((id, i) => {
+      if (i < paladins) got.add(id);
+      need[id] = Math.min(need[id] ?? Infinity, i + 1);
+    }));
+    for (const b of BUFFS) {
+      if (!isB(b)) continue;
+      if (got.has(b.id)) res.has.push(b);
+      else if (need[b.id]) res.miss.push({ ...b, src: need[b.id] === 1 ? "Paladin" : `needs ${need[b.id]} Paladins` });
+    }
+    return res;
+  }
+
+  function groupAnalysis(members, raidMembers) {
+    const p = analyze(members, ["party"]);
+    const r = applyBlessings(members, analyze(members, ["raid"], raidMembers), paladinCount(raidMembers));
+    return { has: [...r.has, ...p.has], miss: [...r.miss, ...p.miss], unused: p.unused, notes: p.notes };
+  }
+
+  function renderGroups() {
+    const raidMembers = state.groups.flat().filter(Boolean).map(id => SPEC[id]);
+    const html = state.groups.map((g, gi) => {
+      const members = g.filter(Boolean).map(id => SPEC[id]);
+      const type = groupType(members);
+      const a = groupAnalysis(members, raidMembers);
+      const total = a.has.length + a.miss.length;
+      const slots = g.map((id, si) => {
+        if (!id) return `<div class="slot empty" data-g="${gi}" data-s="${si}">Empty slot</div>`;
+        const s = SPEC[id], c = CLASSES[s.cls];
+        return `<div class="slot" data-g="${gi}" data-s="${si}">
+          <div class="member" data-drag data-spec="${id}" data-from="${gi},${si}" style="--c:${c.c};--t:${c.t}" title="${esc(c.name + " · " + s.name)}">
+            <span class="m-name">${esc(c.name)}</span><span class="m-spec">${esc(s.name)}</span>
+            <span class="m-role">${ROLE_LABEL[s.role]}</span>
+            <button type="button" class="rm" data-rm="${gi},${si}" aria-label="Remove ${esc(c.name + " " + s.name)}">×</button>
+          </div></div>`;
+      }).join("");
+      const body = members.length ? `
+        ${type.mode ? `<p class="g-mode">${type.mode}</p>` : ""}
+        ${buffBlock("Has", a.has, "has", "No buffs yet")}
+        ${buffBlock("Missing", a.miss, "miss", "Nothing missing")}
+        ${a.unused.length ? buffBlock("Not used here", a.unused, "unused", "") : ""}
+        ${notesHtml(a.notes)}` : `<p class="g-mode">Drop players here to see this group's buffs.</p>`;
+      return `<article class="group" data-g="${gi}">
+        <div class="g-head"><h2>Group ${gi + 1}</h2>
+          <div style="display:flex;gap:8px;align-items:center">
+            ${total ? `<span class="g-score" title="Buffs this group uses that are covered">${a.has.length}/${total}</span>` : ""}
+            <span class="g-type ${type.key === "empty" ? "empty" : ""}">${type.label}</span></div></div>
+        <div class="slots">${slots}</div>${body}</article>`;
+    }).join("");
+    document.getElementById("groups").innerHTML = html;
+  }
+
+  function renderSummary() {
+    const members = state.groups.flat().filter(Boolean).map(id => SPEC[id]);
+    const counts = {};
+    members.forEach(m => counts[m.role] = (counts[m.role] || 0) + 1);
+    const paladins = paladinCount(members);
+    const raid = applyBlessings(members, analyze(members, ["raid"]), paladins);
+    if (paladins && raid.miss.some(b => BLESSINGS.includes(b.id))) raid.notes.push(
+      `${paladins} paladin${paladins > 1 ? "s" : ""}: each player gets ${paladins} blessing${paladins > 1 ? "s" : ""}. ` +
+      `Order used: tanks Kings, Might, Light. Melee and ranged Kings, Might. Casters and healers Kings, Wisdom.`);
+    const debuff = analyze(members, ["debuff"]);
+    const partyMissing = state.groups.reduce((n, g) => n + analyze(g.filter(Boolean).map(id => SPEC[id]), ["party"]).miss.length, 0);
+    const cap = state.groups.length * GROUP_SIZE;
+    const stat = (n, label, cls = "") => `<div class="stat ${cls}"><b>${n}</b><span>${label}</span></div>`;
+    const missCls = n => members.length ? (n ? "bad" : "good") : "";
+    document.getElementById("summary").innerHTML = `
+      <div class="sum-row">
+        ${stat(`${members.length}/${cap}`, "players")}
+        ${["tank", "healer", "melee", "ranged", "caster"].map(r => stat(counts[r] || 0, ROLE_LABEL[r].toLowerCase() + ((counts[r] || 0) === 1 ? "" : "s"))).join("")}
+      </div>
+      <div class="sum-row">
+        ${stat(partyMissing, "party buffs missing", missCls(partyMissing))}
+        ${stat(raid.miss.length, "raid buffs missing", missCls(raid.miss.length))}
+        ${stat(debuff.miss.length, "boss debuffs missing", missCls(debuff.miss.length))}
+      </div>
+      ${members.length ? `<div class="raidwide">
+        <div><h2>Raid-wide buffs</h2>${buffBlock("Has", raid.has, "has", "None yet")}${buffBlock("Missing", raid.miss, "miss", "Nothing missing")}${notesHtml(raid.notes)}</div>
+        <div><h2>Boss debuffs</h2>${buffBlock("Has", debuff.has, "has", "None yet")}${buffBlock("Missing", debuff.miss, "miss", "Nothing missing")}${notesHtml(debuff.notes)}</div>
+      </div>` : ""}`;
+  }
+
+  // Resistance sources. Not counted as missing buffs since they depend on the boss.
+  const RESISTS = [
+    { school: "Fire", color: "#e0622d", sources: [
+      { short: "Aura",   name: "Fire Resistance Aura",  cls: "paladin", scope: "party", cost: "Takes the paladin's aura slot" },
+      { short: "Totem",  name: "Fire Resistance Totem", cls: "shaman",  scope: "raid", cost: "Raid-wide. Water totem, replaces Mana Spring" } ] },
+    { school: "Frost", color: "#5fa8e8", sources: [
+      { short: "Aura",   name: "Frost Resistance Aura",  cls: "paladin", scope: "party", cost: "Takes the paladin's aura slot" },
+      { short: "Totem",  name: "Frost Resistance Totem", cls: "shaman",  scope: "raid", cost: "Raid-wide. Fire totem, replaces Flametongue" } ] },
+    { school: "Shadow", color: "#8a6ad1", sources: [
+      { short: "Prayer", name: "Prayer of Shadow Protection", cls: "priest", scope: "raid", cost: "Raid-wide, no trade-off" },
+      { short: "Aura",   name: "Shadow Resistance Aura", cls: "paladin", scope: "party", cost: "Takes the paladin's aura slot" } ] },
+    { school: "Nature", color: "#4f9d4a", sources: [
+      { short: "Totem",  name: "Nature Resistance Totem", cls: "shaman", scope: "raid", cost: "Raid-wide. Air totem, replaces Grace of Air or Windfury" },
+      { short: "Aspect", name: "Aspect of the Wild",      cls: "hunter", scope: "party", cost: "Takes the hunter's aspect" } ] },
+  ];
+
+  function renderResist() {
+    const raidCls = new Set(state.groups.flat().filter(Boolean).map(id => SPEC[id].cls));
+    const head = state.groups.map((_, gi) => `<th scope="col">G${gi + 1}</th>`).join("");
+    const rows = RESISTS.map(r => {
+      const cells = state.groups.map(g => {
+        const ids = g.filter(Boolean);
+        if (!ids.length) return `<td class="nores">–</td>`;
+        const groupCls = new Set(ids.map(id => SPEC[id].cls));
+        const got = r.sources.filter(s => s.scope === "raid" ? raidCls.has(s.cls) : groupCls.has(s.cls));
+        return `<td>${got.length ? got.map(s => `<span class="src ${s.scope === "raid" ? "raidwide" : ""}" title="${esc(`${s.name} (${CLASSES[s.cls].name}). ${s.cost}.`)}">${s.short}</span>`).join("") : `<span class="nores">None</span>`}</td>`;
+      }).join("");
+      return `<tr><th scope="row"><span class="dot" style="--s:${r.color}"></span>${r.school}</th>${cells}</tr>`;
+    }).join("");
+    document.getElementById("resist").innerHTML = `
+      <div class="res-head"><h2>Resistances</h2>
+        <p>Which resistance each group can get. These are fight-specific, so they aren't counted as missing buffs. Blue sources reach the whole raid. Hover a source to see what it replaces. Mark of the Wild adds a little to every school.</p></div>
+      <div class="res-scroll"><table class="res"><thead><tr><th scope="col">School</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
+  function renderControls() {
+    const sel = document.getElementById("groupCount");
+    if (!sel.options.length) {
+      for (const n of GROUP_OPTIONS) sel.add(new Option(`${n * GROUP_SIZE}-man (${n} groups)`, n));
+    }
+    sel.value = state.groups.length;
+  }
+
+  function render() { renderControls(); renderPalette(); renderSummary(); renderResist(); renderGroups(); save(); }
+  const status = msg => { document.getElementById("status").textContent = msg; };
+
+  function addToFirstEmpty(specId, onlyGroup) {
+    const order = onlyGroup != null ? [onlyGroup] : state.groups.map((_, i) => i);
+    for (const gi of order) {
+      const si = state.groups[gi].indexOf(null);
+      if (si !== -1) { state.groups[gi][si] = specId; return [gi, si]; }
+    }
+    return null;
+  }
+  const label = id => `${CLASSES[SPEC[id].cls].name} (${SPEC[id].name})`;
+
+  // Controls
+  document.getElementById("groupCount").addEventListener("change", e => {
+    const n = +e.target.value;
+    const dropped = state.groups.slice(n).flat().filter(Boolean).length;
+    state.groups = state.groups.slice(0, n);
+    while (state.groups.length < n) state.groups.push(Array(GROUP_SIZE).fill(null));
+    render();
+    status(dropped ? `Removed ${dropped} player${dropped > 1 ? "s" : ""} from the dropped groups.` : `Raid set to ${n * GROUP_SIZE} players.`);
+  });
+  document.getElementById("example").addEventListener("click", () => {
+    const n = state.groups.length;
+    state.groups = exampleState(n).groups; render(); status(`Loaded an example ${n * GROUP_SIZE}-man raid.`);
+  });
+  document.getElementById("clear").addEventListener("click", () => {
+    state.groups = emptyGroups(state.groups.length); render(); status("Raid cleared.");
+  });
+
+  // Tap a palette spec or a remove button
+  let suppressClick = false;
+  document.addEventListener("click", e => {
+    if (suppressClick) { suppressClick = false; e.preventDefault(); return; }
+    const rm = e.target.closest("[data-rm]");
+    if (rm) {
+      const [g, s] = rm.dataset.rm.split(",").map(Number);
+      const id = state.groups[g][s]; state.groups[g][s] = null; render();
+      status(`Removed ${label(id)} from group ${g + 1}.`); return;
+    }
+    const spec = e.target.closest("#palette .spec");
+    if (spec) {
+      const pos = addToFirstEmpty(spec.dataset.spec);
+      if (pos) { render(); status(`Added ${label(spec.dataset.spec)} to group ${pos[0] + 1}.`); document.getElementById("spec-" + spec.dataset.spec)?.focus(); }
+      else status("The raid is full. Add a group or remove someone first.");
+    }
+  });
+
+  // Pointer drag and drop (mouse, pen and touch)
+  let drag = null, hoverEl = null;
+  function setHover(el) {
+    if (hoverEl === el) return;
+    hoverEl?.classList.remove("drop-hover", "drop-remove");
+    hoverEl = el;
+    if (el) el.classList.add(el.id === "palette" ? "drop-remove" : "drop-hover");
+  }
+  function dropTarget(x, y) {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    return el.closest(".slot") || el.closest(".group") || (drag.from ? el.closest("#palette") : null);
+  }
+  document.addEventListener("pointerdown", e => {
+    const el = e.target.closest("[data-drag]");
+    if (!el || e.target.closest(".rm") || e.button !== 0) return;
+    drag = { el, spec: el.dataset.spec, from: el.dataset.from ? el.dataset.from.split(",").map(Number) : null, x: e.clientX, y: e.clientY, ghost: null };
+  });
+  document.addEventListener("pointermove", e => {
+    if (!drag) return;
+    if (!drag.ghost) {
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return;
+      const c = CLASSES[SPEC[drag.spec].cls];
+      const g = document.createElement("div");
+      g.className = "member ghost";
+      g.style.cssText = `--c:${c.c};--t:${c.t}`;
+      g.innerHTML = `<span class="m-name">${esc(c.name)}</span><span class="m-spec">${esc(SPEC[drag.spec].name)}</span>`;
+      document.body.appendChild(g);
+      drag.ghost = g;
+      document.body.classList.add("dragging");
+      if (drag.from) status("Drop on a slot to move or swap, or drop on the class list to remove.");
+    }
+    e.preventDefault();
+    drag.ghost.style.left = e.clientX + "px";
+    drag.ghost.style.top = e.clientY + "px";
+    setHover(dropTarget(e.clientX, e.clientY));
+  }, { passive: false });
+  function endDrag(e, cancelled) {
+    if (!drag) return;
+    const d = drag; drag = null;
+    if (!d.ghost) return;
+    suppressClick = true; setTimeout(() => { suppressClick = false; }, 0);
+    d.ghost.remove(); document.body.classList.remove("dragging");
+    const target = cancelled ? null : dropTarget(e.clientX, e.clientY);
+    setHover(null);
+    if (!target) { status(""); return; }
+    if (target.id === "palette") {
+      state.groups[d.from[0]][d.from[1]] = null; render();
+      status(`Removed ${label(d.spec)} from group ${d.from[0] + 1}.`); return;
+    }
+    const g = +target.dataset.g;
+    if (target.classList.contains("slot")) {
+      const s = +target.dataset.s;
+      const prev = state.groups[g][s];
+      if (d.from) { state.groups[d.from[0]][d.from[1]] = prev; }
+      state.groups[g][s] = d.spec;
+      render();
+      status(d.from && prev ? `Swapped ${label(d.spec)} and ${label(prev)}.` : `Placed ${label(d.spec)} in group ${g + 1}.`);
+    } else {
+      if (d.from && d.from[0] === g) { status(""); return; }
+      if (d.from) state.groups[d.from[0]][d.from[1]] = null;
+      const pos = addToFirstEmpty(d.spec, g);
+      if (!pos && d.from) state.groups[d.from[0]][d.from[1]] = d.spec;
+      render();
+      status(pos ? `Placed ${label(d.spec)} in group ${g + 1}.` : `Group ${g + 1} is full. Drop onto a player to swap.`);
+    }
+  }
+  document.addEventListener("pointerup", e => endDrag(e, false));
+  document.addEventListener("pointercancel", e => endDrag(e, true));
+
+  render();
+})();
+</script>
+</body>
+</html>
