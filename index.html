@@ -152,6 +152,21 @@ select { font: inherit; color: var(--ink); background: var(--panel); border: 1px
 .notes li { font-size: .82rem; color: var(--warn); padding-left: 14px; position: relative; }
 .notes li::before { content: "!"; position: absolute; left: 2px; font-weight: 700; }
 
+/* Class hover card */
+.tip {
+  position: fixed; z-index: 40; pointer-events: none; width: max-content; max-width: min(300px, calc(100vw - 24px));
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-top: 4px solid var(--c);
+  border-radius: 8px; padding: 10px 12px; box-shadow: 0 10px 28px rgba(0,0,0,.22); font-size: .85rem;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.tip h4 { margin: 0; font-family: var(--font-display); font-size: 1rem; }
+.tip h4 span { font-family: var(--font-mono); font-size: .66rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-left: 6px; }
+.tip .t-sec { display: flex; flex-direction: column; gap: 2px; }
+.tip .t-sec b { font-size: .68rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.tip .t-sec div { display: flex; justify-content: space-between; gap: 12px; }
+.tip .t-sec small { color: var(--muted); text-align: right; }
+.tip .t-note { color: var(--muted); font-size: .78rem; margin: 0; }
+
 /* Drag ghost */
 .ghost { position: fixed; z-index: 50; pointer-events: none; transform: translate(-50%, -50%) rotate(-2deg); box-shadow: 0 8px 20px rgba(0,0,0,.3); opacity: .95; width: 220px; }
 body.dragging, body.dragging * { cursor: grabbing !important; }
@@ -454,7 +469,7 @@ footer { color: var(--muted); font-size: .82rem; max-width: 75ch; }
         if (!id) return `<div class="slot empty" data-g="${gi}" data-s="${si}">Empty slot</div>`;
         const s = SPEC[id], c = CLASSES[s.cls];
         return `<div class="slot" data-g="${gi}" data-s="${si}">
-          <div class="member" data-drag data-spec="${id}" data-from="${gi},${si}" style="--c:${c.c};--t:${c.t}" title="${esc(c.name + " · " + s.name)}">
+          <div class="member" data-drag data-spec="${id}" data-from="${gi},${si}" style="--c:${c.c};--t:${c.t}">
             <span class="m-name">${esc(c.name)}</span><span class="m-spec">${esc(s.name)}</span>
             <span class="m-role">${ROLE_LABEL[s.role]}</span>
             <button type="button" class="rm" data-rm="${gi},${si}" aria-label="Remove ${esc(c.name + " " + s.name)}">×</button>
@@ -549,7 +564,7 @@ footer { color: var(--muted); font-size: .82rem; max-width: 75ch; }
     sel.value = state.groups.length;
   }
 
-  function render() { renderControls(); renderPalette(); renderSummary(); renderResist(); renderGroups(); save(); }
+  function render() { hideTip(); renderControls(); renderPalette(); renderSummary(); renderResist(); renderGroups(); save(); }
   const status = msg => { document.getElementById("status").textContent = msg; };
 
   function addToFirstEmpty(specId, onlyGroup) {
@@ -597,6 +612,50 @@ footer { color: var(--muted); font-size: .82rem; max-width: 75ch; }
     }
   });
 
+  // Hover card: what a class/spec brings to the raid
+  const tip = document.createElement("div");
+  tip.className = "tip"; tip.hidden = true; tip.setAttribute("role", "tooltip");
+  document.body.appendChild(tip);
+  let tipFor = null;
+  const CLASS_NOTES = {
+    paladin: "Each player holds one blessing per paladin, and each paladin runs one aura.",
+    shaman: "One totem per element at a time. Windfury and Flametongue don't stack.",
+    warlock: "Each warlock keeps up one curse.",
+  };
+  function specTip(id) {
+    const s = SPEC[id], c = CLASSES[s.cls];
+    const buffs = s.gives.map(b => BUFFS.find(x => x.id === b));
+    const sec = (title, list) => list.length ? `<div class="t-sec"><b>${title}</b>${list.map(([n, d]) => `<div><span>${esc(n)}</span><small>${esc(d)}</small></div>`).join("")}</div>` : "";
+    const pick = scope => buffs.filter(b => b.scope === scope).map(b => [b.name, b.fx.split(".")[0]]);
+    const resist = RESISTS.flatMap(r => r.sources.filter(x => x.cls === s.cls).map(x => [x.name, x.scope === "raid" ? "Raid-wide" : "Party only"]));
+    const body = sec("Raid-wide buffs", pick("raid")) + sec("Party buffs", pick("party")) + sec("Boss debuffs", pick("debuff")) + sec("Resistances", resist);
+    tip.style.setProperty("--c", c.c);
+    tip.innerHTML = `<h4>${esc(c.name)} · ${esc(s.name)}<span>${ROLE_LABEL[s.role]}</span></h4>` +
+      (body || `<p class="t-note">No group buffs or boss debuffs. Brings damage only.</p>`) +
+      (CLASS_NOTES[s.cls] ? `<p class="t-note">${CLASS_NOTES[s.cls]}</p>` : "");
+  }
+  function showTip(el) {
+    if (tipFor === el) return;
+    tipFor = el;
+    specTip(el.dataset.spec);
+    tip.hidden = false;
+    const r = el.getBoundingClientRect(), t = tip.getBoundingClientRect(), pad = 12;
+    let x = r.right + 10, y = r.top;
+    if (x + t.width > innerWidth - pad) x = r.left - t.width - 10;
+    if (x < pad) { x = Math.min(Math.max(pad, r.left), innerWidth - t.width - pad); y = r.bottom + 8; }
+    y = Math.max(pad, Math.min(y, innerHeight - t.height - pad));
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  }
+  function hideTip() { tipFor = null; tip.hidden = true; }
+  document.addEventListener("pointerover", e => {
+    if (e.pointerType === "touch" || drag?.ghost) return;
+    const el = e.target.closest("[data-spec]");
+    el ? showTip(el) : hideTip();
+  });
+  document.addEventListener("focusin", e => { const el = e.target.closest("#palette .spec"); el ? showTip(el) : hideTip(); });
+  document.addEventListener("focusout", hideTip);
+  addEventListener("scroll", hideTip, true);
+
   // Pointer drag and drop (mouse, pen and touch)
   let drag = null, hoverEl = null;
   function setHover(el) {
@@ -626,6 +685,7 @@ footer { color: var(--muted); font-size: .82rem; max-width: 75ch; }
       g.innerHTML = `<span class="m-name">${esc(c.name)}</span><span class="m-spec">${esc(SPEC[drag.spec].name)}</span>`;
       document.body.appendChild(g);
       drag.ghost = g;
+      hideTip();
       document.body.classList.add("dragging");
       if (drag.from) status("Drop on a slot to move or swap, or drop on the class list to remove.");
     }
