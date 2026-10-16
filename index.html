@@ -100,19 +100,6 @@ select { font: inherit; color: var(--ink); background: var(--panel); border: 1px
 .raidwide { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
 .raidwide > div { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 
-/* Resistances */
-.res-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 14px; }
-.res-head p { margin: 0; font-size: .84rem; color: var(--muted); max-width: 60ch; }
-.res-scroll { overflow-x: auto; }
-.res { border-collapse: collapse; width: 100%; font-size: .86rem; }
-.res th, .res td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-.res thead th { font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
-.res tbody th { font-family: var(--font-display); font-size: .95rem; }
-.res .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--s); margin-right: 6px; }
-.res .src { display: inline-block; padding: 1px 6px; border-radius: 4px; background: var(--ok-bg); color: var(--ok); margin-right: 4px; cursor: help; }
-.res .src.raidwide { background: var(--accent-soft); color: var(--accent); }
-.res .nores { color: var(--muted); }
-
 /* Groups */
 .groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
 .group { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -203,7 +190,6 @@ footer { color: var(--muted); font-size: .82rem; max-width: 75ch; }
     <aside id="palette" aria-label="Classes"></aside>
     <main style="display:flex;flex-direction:column;gap:14px;min-width:0">
       <section class="summary" id="summary" aria-label="Raid summary"></section>
-      <section class="summary" id="resist" aria-label="Resistances"></section>
       <div class="share" id="shareBox" hidden>
         <label for="shareUrl">Share link</label>
         <input id="shareUrl" readonly>
@@ -548,41 +534,6 @@ footer { color: var(--muted); font-size: .82rem; max-width: 75ch; }
       </div>` : ""}`;
   }
 
-  // Resistance sources. Not counted as missing buffs since they depend on the boss.
-  const RESISTS = [
-    { school: "Fire", color: "#e0622d", sources: [
-      { short: "Aura",   name: "Fire Resistance Aura",  cls: "paladin", scope: "party", cost: "Takes the paladin's aura slot" },
-      { short: "Totem",  name: "Fire Resistance Totem", cls: "shaman",  scope: "raid", cost: "Raid-wide. Water totem, replaces Mana Spring" } ] },
-    { school: "Frost", color: "#5fa8e8", sources: [
-      { short: "Aura",   name: "Frost Resistance Aura",  cls: "paladin", scope: "party", cost: "Takes the paladin's aura slot" },
-      { short: "Totem",  name: "Frost Resistance Totem", cls: "shaman",  scope: "raid", cost: "Raid-wide. Fire totem, replaces Flametongue" } ] },
-    { school: "Shadow", color: "#8a6ad1", sources: [
-      { short: "Prayer", name: "Prayer of Shadow Protection", cls: "priest", scope: "raid", cost: "Raid-wide, no trade-off" },
-      { short: "Aura",   name: "Shadow Resistance Aura", cls: "paladin", scope: "party", cost: "Takes the paladin's aura slot" } ] },
-    { school: "Nature", color: "#4f9d4a", sources: [
-      { short: "Totem",  name: "Nature Resistance Totem", cls: "shaman", scope: "raid", cost: "Raid-wide. Air totem, replaces Grace of Air or Windfury" },
-      { short: "Aspect", name: "Aspect of the Wild",      cls: "hunter", scope: "party", cost: "Takes the hunter's aspect" } ] },
-  ];
-
-  function renderResist() {
-    const raidCls = new Set(state.groups.flat().filter(Boolean).map(id => SPEC[id].cls));
-    const head = state.groups.map((_, gi) => `<th scope="col">G${gi + 1}</th>`).join("");
-    const rows = RESISTS.map(r => {
-      const cells = state.groups.map(g => {
-        const ids = g.filter(Boolean);
-        if (!ids.length) return `<td class="nores">–</td>`;
-        const groupCls = new Set(ids.map(id => SPEC[id].cls));
-        const got = r.sources.filter(s => s.scope === "raid" ? raidCls.has(s.cls) : groupCls.has(s.cls));
-        return `<td>${got.length ? got.map(s => `<span class="src ${s.scope === "raid" ? "raidwide" : ""}" title="${esc(`${s.name} (${CLASSES[s.cls].name}). ${s.cost}.`)}">${s.short}</span>`).join("") : `<span class="nores">None</span>`}</td>`;
-      }).join("");
-      return `<tr><th scope="row"><span class="dot" style="--s:${r.color}"></span>${r.school}</th>${cells}</tr>`;
-    }).join("");
-    document.getElementById("resist").innerHTML = `
-      <div class="res-head"><h2>Resistances</h2>
-        <p>Which resistance each group can get. These are fight-specific, so they aren't counted as missing buffs. Blue sources reach the whole raid. Hover a source to see what it replaces. Mark of the Wild adds a little to every school.</p></div>
-      <div class="res-scroll"><table class="res"><thead><tr><th scope="col">School</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
-  }
-
   function renderControls() {
     const sel = document.getElementById("groupCount");
     if (!sel.options.length) {
@@ -591,7 +542,7 @@ footer { color: var(--muted); font-size: .82rem; max-width: 75ch; }
     sel.value = state.groups.length;
   }
 
-  function render() { hideTip(); renderControls(); renderPalette(); renderSummary(); renderResist(); renderGroups(); save(); }
+  function render() { hideTip(); renderControls(); renderPalette(); renderSummary(); renderGroups(); save(); }
   const status = msg => { document.getElementById("status").textContent = msg; };
 
   function addToFirstEmpty(specId, onlyGroup) {
@@ -671,8 +622,7 @@ footer { color: var(--muted); font-size: .82rem; max-width: 75ch; }
     const buffs = s.gives.map(b => BUFFS.find(x => x.id === b));
     const sec = (title, list) => list.length ? `<div class="t-sec"><b>${title}</b>${list.map(([n, d]) => `<div><span>${esc(n)}</span><small>${esc(d)}</small></div>`).join("")}</div>` : "";
     const pick = scope => buffs.filter(b => b.scope === scope).map(b => [b.name, b.fx.split(".")[0]]);
-    const resist = RESISTS.flatMap(r => r.sources.filter(x => x.cls === s.cls).map(x => [x.name, x.scope === "raid" ? "Raid-wide" : "Party only"]));
-    const body = sec("Raid-wide buffs", pick("raid")) + sec("Party buffs", pick("party")) + sec("Boss debuffs", pick("debuff")) + sec("Resistances", resist);
+    const body = sec("Raid-wide buffs", pick("raid")) + sec("Party buffs", pick("party")) + sec("Boss debuffs", pick("debuff"));
     tip.style.setProperty("--c", c.c);
     tip.innerHTML = `<h4>${esc(c.name)} · ${esc(s.name)}<span>${ROLE_LABEL[s.role]}</span></h4>` +
       (body || `<p class="t-note">No group buffs or boss debuffs. Brings damage only.</p>`) +
