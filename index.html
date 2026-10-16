@@ -294,7 +294,6 @@ footer { color: var(--muted); font-size: .82rem; max-width: 75ch; }
 
   const GROUP_SIZE = 5, STORE = "forever-raid-buffs-v1";
   const GROUP_OPTIONS = [2, 3, 4, 5, 8]; // 10, 15, 20, 25 and 40-man
-  const state = load() || exampleState(4);
 
   function emptyGroups(n) { return Array.from({ length: n }, () => Array(GROUP_SIZE).fill(null)); }
   // Example raids for each size. 10- and 15-man get their own comps so they still have tanks and healers.
@@ -335,6 +334,7 @@ footer { color: var(--muted); font-size: .82rem; max-width: 75ch; }
     } catch (e) {}
     return null;
   }
+  const state = load() || exampleState(4);
   function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
 
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
